@@ -1,37 +1,66 @@
-export async function onRequestGet(context) {
-  const supabaseUrl = context.env.SUPABASE_URL
-  const supabaseKey = context.env.SUPABASE_SERVICE_ROLE_KEY
+import { useEffect, useState } from 'react'
 
-  if (!supabaseUrl || !supabaseKey) {
-    return new Response(
-      JSON.stringify({
-        error: 'Cloudflare側のSupabase設定がまだありません'
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json'
+function App() {
+  const [status, setStatus] = useState('Cloudflare経由で階数を取得中...')
+  const [floors, setFloors] = useState([])
+
+  useEffect(() => {
+    async function loadFloors() {
+      try {
+        const response = await fetch('/floors')
+
+        if (!response.ok) {
+          const text = await response.text()
+          console.error(text)
+          setStatus(`❌ エラー: ${response.status}`)
+          return
         }
-      }
-    )
-  }
 
-  const response = await fetch(
-    `${supabaseUrl}/rest/v1/floors?select=id,name,sort_order,map_image_url,is_public&is_public=eq.true&order=sort_order.asc`,
-    {
-      headers: {
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`
+        const data = await response.json()
+
+        setFloors(data)
+        setStatus('✅ Cloudflare経由でSupabaseに接続成功！')
+      } catch (error) {
+        console.error(error)
+        setStatus(`❌ 通信エラー: ${error.message}`)
       }
     }
+
+    loadFloors()
+  }, [])
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      padding: '40px',
+      fontFamily: 'system-ui, sans-serif',
+      background: '#f5f7fb'
+    }}>
+      <h1>九段校舎マップ</h1>
+
+      <p>{status}</p>
+
+      <h2>階数</h2>
+
+      {floors.length === 0 ? (
+        <p>階数データがありません。</p>
+      ) : (
+        floors.map((floor) => (
+          <div
+            key={floor.id}
+            style={{
+              background: 'white',
+              padding: '16px',
+              marginBottom: '10px',
+              borderRadius: '12px'
+            }}
+          >
+            <strong>{floor.name}</strong>
+          </div>
+        ))
+      )}
+    </div>
   )
-
-  const data = await response.text()
-
-  return new Response(data, {
-    status: response.status,
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  })
 }
+
+export default App
